@@ -2,15 +2,29 @@
 
 import { makePatients, stepPatients } from './patients.js';
 import { ENGINES } from './engines.js';
+import { rankPatients } from './priora.js';
 
 const wallEl = document.getElementById('wall');
+const watchlistEl = document.getElementById('watchlist');
 const clockEl = document.getElementById('clock');
-const heroNumEl = document.getElementById('heroNum');
+const heroEl = document.getElementById('hero');
+const heroFromEl = document.getElementById('heroFrom');
+const heroToEl = document.getElementById('heroTo');
+const heroLabelEl = document.getElementById('heroLabel');
+const prioraBtn = document.getElementById('prioraBtn');
 const pauseBtn = document.getElementById('pauseBtn');
 const resetBtn = document.getElementById('resetBtn');
 const engineSel = document.getElementById('engineSel');
 
 const TICK_MS = 1000;
+
+// Collapse-transition timing. One eased breath: priority tiles bloom, the
+// rest go quiet, then fold into the watchlist strip.
+const EXHALE_MS = 480;
+// PriorA surfaces the two highest-ranked patients as PRIORITY; everyone else
+// is watchlist. Two is a deliberate ceiling — L4 will widen it per nurse on
+// shift, but the base reveal always names exactly the top pair.
+const PRIORITY_COUNT = 2;
 
 // The legacy layer counts alerts from the start of the shift, not just the
 // ones lit right now. Seeded so the hero metric opens on a number that already
@@ -33,6 +47,7 @@ let selectedEngine = 'epic';
 let primed = false; // once true, new alert episodes bump the shift counter
 let running = true;
 let timer = null;
+let prioraActive = false; // flipped by "Activate PriorA"; owns the wall once set
 
 function fmtVital(key, value) {
   return key === 'temp' ? value.toFixed(1) : String(value);
@@ -147,14 +162,154 @@ function paintAlerts() {
       tile.meta.textContent = `Elevated · ${mins} min`;
     }
   }
-  heroNumEl.textContent = alertsThisShift;
+  heroFromEl.textContent = alertsThisShift;
+}
+
+// ---- PriorA: L3 ranking -> priority tiles + watchlist strip -------------
+
+function currentScores() {
+  const score = ENGINES[selectedEngine].score;
+  const scores = new Map();
+  for (const p of patients) scores.set(p.bed, score(p));
+  return scores;
+}
+
+// Assign each tile its PriorA role for this ranking. Pure class/badge work —
+// no timing, so it's safe to call every tick as the ranking shifts.
+function applyRoles(topRows) {
+  const rankByBed = new Map(topRows.map((r, i) => [r.bed, i + 1]));
+  for (const [bed, tile] of tiles) {
+    const card = tile.card;
+    card.classList.remove('tile--alert'); // PriorA owns the styling now
+    if (rankByBed.has(bed)) {
+      card.hidden = false;
+      card.classList.remove('tile--quiet', 'tile--collapsed');
+      card.classList.add('tile--priority');
+      setBadge(tile, rankByBed.get(bed));
+      card.dataset.prioraRole = 'priority';
+    } else {
+      clearBadge(tile);
+      card.classList.remove('tile--priority');
+      card.classList.add('tile--quiet');
+      card.dataset.prioraRole = 'watch';
+    }
+  }
+}
+
+function setBadge(tile, rank) {
+  let badge = tile.card.querySelector('.rank-badge');
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.className = 'rank-badge';
+    tile.card.append(badge);
+  }
+  badge.textContent = `#${rank}`;
+}
+
+function clearBadge(tile) {
+  const badge = tile.card.querySelector('.rank-badge');
+  if (badge) badge.remove();
+}
+
+// Put the priority tiles first in the grid so they sit top-left.
+function orderPriorityFirst(topBeds) {
+  for (let i = topBeds.length - 1; i >= 0; i--) {
+    const tile = tiles.get(topBeds[i]);
+    if (tile) wallEl.prepend(tile.card);
+  }
+}
+
+function buildWatchlist(ranking, topBeds) {
+  const top = new Set(topBeds);
+  watchlistEl.textContent = '';
+  const label = document.createElement('span');
+  label.className = 'watchlist-label';
+  label.textContent = 'Watchlist';
+  watchlistEl.append(label);
+  for (const row of ranking) {
+    if (top.has(row.bed)) continue;
+    const chip = document.createElement('span');
+    chip.className = 'chip';
+    chip.textContent = row.bed;
+    watchlistEl.append(chip);
+  }
+}
+
+function pickTop(ranking) {
+  return ranking.slice(0, PRIORITY_COUNT);
+}
+
+// The brand reveal. Not a data update — an exhale. Priority tiles bloom,
+// the rest go quiet, then fold into the strip; the hero metric resolves
+// from "25" to "25 -> 2".
+function activatePriora() {
+  if (prioraActive) return;
+  prioraActive = true;
+  prioraBtn.disabled = true;
+  prioraBtn.textContent = 'PriorA Active';
+
+  const ranking = rankPatients(patients, currentScores());
+  const topRows = pickTop(ranking);
+  const topBeds = topRows.map((r) => r.bed);
+
+  wallEl.classList.add('wall--priora');
+
+  // Next frame, so the transition we just enabled actually animates.
+  requestAnimationFrame(() => {
+    applyRoles(topRows);
+    orderPriorityFirst(topBeds);
+  });
+
+  // Hero: reveal the "-> 2" suffix, then swap the label under it.
+  heroToEl.textContent = topBeds.length;
+  requestAnimationFrame(() => heroEl.classList.add('hero--priora'));
+  window.setTimeout(() => {
+    heroLabelEl.textContent = 'Alerts · Priorities';
+  }, 200);
+
+  // A beat later, the quiet tiles fold and the watchlist breathes in.
+  window.setTimeout(() => {
+    for (const [bed, tile] of tiles) {
+      if (!topBeds.includes(bed)) tile.card.classList.add('tile--collapsed');
+    }
+    buildWatchlist(ranking, topBeds);
+    watchlistEl.hidden = false;
+    requestAnimationFrame(() => watchlistEl.classList.add('is-visible'));
+  }, 200);
+
+  // Once folded, drop them from layout so the grid closes up cleanly.
+  window.setTimeout(() => {
+    for (const [bed, tile] of tiles) {
+      if (!topBeds.includes(bed)) tile.card.hidden = true;
+    }
+  }, 200 + EXHALE_MS + 40);
+}
+
+// Steady-state re-render once PriorA is live: re-rank and reconcile roles
+// without replaying the reveal animation.
+function renderPrioraState() {
+  const ranking = rankPatients(patients, currentScores());
+  const topRows = pickTop(ranking);
+  const topBeds = topRows.map((r) => r.bed);
+
+  applyRoles(topRows);
+  for (const [bed, tile] of tiles) {
+    if (!topBeds.includes(bed)) {
+      tile.card.classList.add('tile--collapsed');
+      tile.card.hidden = true;
+    }
+  }
+  orderPriorityFirst(topBeds);
+  buildWatchlist(ranking, topBeds);
+  heroToEl.textContent = topBeds.length;
 }
 
 function tick() {
   stepPatients(patients);
   evaluateAlerts();
   paintVitals();
-  paintAlerts();
+  if (prioraActive) renderPrioraState();
+  else paintAlerts();
   clockEl.textContent = `tick ${patients[0].tick}`;
 }
 
@@ -170,7 +325,20 @@ function resetSim() {
   alerts = new Map();
   alertsThisShift = SHIFT_ALERTS_SEED;
   primed = false;
-  renderWall();
+
+  // Tear down PriorA: back to the raw legacy wall.
+  prioraActive = false;
+  prioraBtn.disabled = false;
+  prioraBtn.textContent = 'Activate PriorA';
+  wallEl.classList.remove('wall--priora');
+  heroEl.classList.remove('hero--priora');
+  heroLabelEl.textContent = 'Alerts This Shift';
+  heroToEl.textContent = '2';
+  watchlistEl.hidden = true;
+  watchlistEl.classList.remove('is-visible');
+  watchlistEl.textContent = '';
+
+  renderWall(); // rebuilds tiles fresh — no priora classes, badges, or hidden
   clockEl.textContent = 'tick 0';
 }
 
@@ -181,6 +349,8 @@ pauseBtn.addEventListener('click', () => {
 
 resetBtn.addEventListener('click', resetSim);
 
+prioraBtn.addEventListener('click', activatePriora);
+
 engineSel.addEventListener('change', () => {
   selectedEngine = engineSel.value;
   // Re-baseline against the new engine's opening set instead of counting the
@@ -188,7 +358,8 @@ engineSel.addEventListener('change', () => {
   alerts = new Map();
   primed = false;
   evaluateAlerts();
-  paintAlerts();
+  if (prioraActive) renderPrioraState();
+  else paintAlerts();
 });
 
 renderWall();

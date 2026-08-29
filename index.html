@@ -15,9 +15,10 @@
   <header class="topbar">
     <div class="brand">Prior<span class="brand-a">A</span></div>
 
-    <div class="hero">
-      <div class="hero-num" id="heroNum">25</div>
-      <div class="hero-label">Alerts This Shift</div>
+    <div class="hero" id="hero">
+      <div class="hero-num" id="heroNum"><span id="heroFrom">25</span><span
+          class="hero-shift"> &rarr; <span class="hero-to" id="heroTo">2</span></span></div>
+      <div class="hero-label" id="heroLabel">Alerts This Shift</div>
     </div>
 
     <div class="controls">
@@ -30,6 +31,7 @@
           <option value="broken">Vendor ML model</option>
         </select>
       </label>
+      <button class="pill pill--priora" id="prioraBtn" type="button">Activate PriorA</button>
       <button class="pill" id="pauseBtn" type="button">Pause</button>
       <button class="pill" id="resetBtn" type="button">Reset</button>
     </div>
@@ -37,6 +39,7 @@
 
   <main>
     <section class="wall" id="wall" aria-label="ICU patient wall"></section>
+    <div class="watchlist" id="watchlist" hidden></div>
   </main>
 
   <script type="module" src="app.js"></script>

@@ -272,6 +272,165 @@ main {
   color: var(--text);
 }
 
+/* ================= PriorA activation ==============================
+   The "Activate PriorA" button is the premium secondary treatment:
+   solid black fill, bold yellow text. Everything below it is the
+   brand-reveal collapse — an eased exhale, never a snap. */
+
+.pill--priora {
+  background: var(--critical);
+  border-color: var(--critical);
+  color: var(--yellow);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.pill--priora:hover {
+  background: #000;
+  border-color: #000;
+  color: var(--yellow);
+}
+
+.pill--priora:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+/* Hero metric: "25" -> "25 -> 2", label -> "ALERTS · PRIORITIES".
+   The suffix and the label crossfade in; nothing jumps. */
+.hero-shift {
+  display: inline-block;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateX(-8px);
+  transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.hero--priora .hero-shift {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.hero-to {
+  color: var(--blue);
+}
+
+.hero-label {
+  transition: opacity 0.3s ease;
+}
+
+/* In PriorA mode every tile eases between states so the collapse reads
+   as one breath rather than a repaint. */
+.wall--priora .tile {
+  transition: opacity 0.48s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.48s cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 0.48s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.48s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.48s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Non-priority tiles fade to a quiet watchlist style first ... */
+.tile--quiet {
+  opacity: 0.7;
+  background: #FAFBFC;
+  border-color: var(--border);
+  border-left: 1px solid var(--border);
+  padding-left: 18px;
+  box-shadow: none;
+}
+
+.tile--quiet .alert-dot,
+.tile--quiet .alert-meta {
+  display: none !important;
+}
+
+/* ... then fold away before they drop out of the grid entirely. */
+.tile--collapsed {
+  opacity: 0;
+  transform: scale(0.94);
+  pointer-events: none;
+}
+
+/* Top 2 elevate to PriorA's own branded triage — a faint yellow wash
+   and left rule, distinct from the legacy vendor red. */
+.tile--priority {
+  background: #FFFCF5;
+  border-color: var(--yellow);
+  border-left: 4px solid var(--yellow);
+  padding-left: 15px;
+  box-shadow: 0 2px 10px rgba(245, 183, 0, 0.14);
+}
+
+.tile--priority .alert-dot,
+.tile--priority .alert-meta {
+  display: none !important;
+}
+
+.rank-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 19px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--yellow);
+  color: var(--critical);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Everything else compresses into a strip of grey bed-number chips. */
+.watchlist {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.watchlist.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.watchlist-label {
+  margin-right: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #EEF1F5;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---- Responsive column counts ------------------------------------- */
 
 @media (max-width: 1240px) {
