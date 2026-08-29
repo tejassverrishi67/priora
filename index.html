@@ -16,12 +16,20 @@
     <div class="brand">Prior<span class="brand-a">A</span></div>
 
     <div class="hero">
-      <div class="hero-num" id="heroNum">40</div>
-      <div class="hero-label">Patients Monitored</div>
+      <div class="hero-num" id="heroNum">25</div>
+      <div class="hero-label">Alerts This Shift</div>
     </div>
 
     <div class="controls">
       <span class="clock" id="clock">tick 0</span>
+      <label class="engine-pick">
+        <span class="engine-pick-label">Engine</span>
+        <select class="pill select" id="engineSel">
+          <option value="epic">Epic-style thresholds</option>
+          <option value="news">NEWS score</option>
+          <option value="broken">Vendor ML model</option>
+        </select>
+      </label>
       <button class="pill" id="pauseBtn" type="button">Pause</button>
       <button class="pill" id="resetBtn" type="button">Reset</button>
     </div>
