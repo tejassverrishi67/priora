@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PriorA — ICU Wall</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Prior<span class="brand-a">A</span></div>
+
+    <div class="hero">
+      <div class="hero-num" id="heroNum">40</div>
+      <div class="hero-label">Patients Monitored</div>
+    </div>
+
+    <div class="controls">
+      <span class="clock" id="clock">tick 0</span>
+      <button class="pill" id="pauseBtn" type="button">Pause</button>
+      <button class="pill" id="resetBtn" type="button">Reset</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="wall" id="wall" aria-label="ICU patient wall"></section>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
