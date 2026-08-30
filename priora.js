@@ -345,11 +345,6 @@ export function buildExplanation(patient) {
       }
     }
     duration = clinicalDuration(Math.max(1, current.tick - onsetTick));
-    if (globalThis.__L5_DEBUG) {
-      console.error(
-        `[L5 onset] bed ${bed} tick ${current.tick}: lead=${lead.key} onsetTick=${onsetTick} span=${current.tick - onsetTick} -> "${duration}"`
-      );
-    }
   }
 
   const lines = moved.map((m, i) =>
