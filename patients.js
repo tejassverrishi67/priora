@@ -8,6 +8,16 @@ const CHRONIC_BEDS = [3, 9, 18, 22, 27, 35]; // alarming-looking, genuinely fine
 
 const HISTORY_CAP = 120;
 
+// ---- judge-mode live deterioration ---------------------------------------
+// Slice 8: JUDGE MODE lets someone click a tile and watch that patient
+// actually deteriorate. This is NOT a scripted archetype and touches no bed
+// IDs — it is a plain linear drift from wherever the patient currently is
+// toward a clearly-critical set of vitals, over roughly INDUCED_DURATION
+// ticks. PriorA reacts through the exact same L1-deviation / L3-ranking path
+// it uses for the scripted crashers; nothing downstream knows a human did it.
+const INDUCED_DURATION = 20;
+const INDUCED_TARGET = { hr: 136, rr: 32, sbp: 80, spo2: 85, temp: 38.7 };
+
 const NAMES = [
   'Ada Whitfield', 'Marcus Bell', 'Priya Raman', 'Thomas Okafor', 'Lena Vasquez',
   'Harold Kim', 'Grace Donnelly', 'Omar Haddad', 'Rosa Linden', 'Charles Pane',
@@ -123,6 +133,19 @@ function computeVitals(p) {
       v = baselineFor(p.bed, p.archetype);
   }
 
+  // Judge-induced live deterioration: a real drift toward critical vitals
+  // over INDUCED_DURATION ticks, layered on top of whatever the archetype was
+  // already doing. No new archetype, no per-bed scripting — the numbers
+  // genuinely move and L1/L3 pick it up like any other slide.
+  if (p.inducedStart != null) {
+    const k = ramp(t, p.inducedStart, INDUCED_DURATION);
+    v.hr = lerp(v.hr, INDUCED_TARGET.hr, k);
+    v.rr = lerp(v.rr, INDUCED_TARGET.rr, k);
+    v.sbp = lerp(v.sbp, INDUCED_TARGET.sbp, k);
+    v.spo2 = lerp(v.spo2, INDUCED_TARGET.spo2, k);
+    v.temp = lerp(v.temp, INDUCED_TARGET.temp, k);
+  }
+
   // Natural minute-to-minute wobble. Chronic patients "barely move".
   const amp = p.archetype === 'chronic-stable' ? 0.5 : 1;
   v.hr = Math.round(v.hr + wobble(p.bed, t, 1.4 * amp));
@@ -152,12 +175,21 @@ export function makePatients() {
       history: [],
       tick: 0,
       treated: false,
+      inducedStart: null,
       archetype,
     };
     Object.assign(p, computeVitals(p));
     patients.push(p);
   }
   return patients;
+}
+
+// Mark a patient as deteriorating from `startTick` onward. Called by the
+// judge-mode click handler in app.js. Idempotent — a second click is a no-op,
+// so a patient's slide always dates from the first click.
+export function induceDeterioration(patient, startTick) {
+  if (!patient || patient.inducedStart != null) return;
+  patient.inducedStart = startTick;
 }
 
 export function stepPatients(patients) {

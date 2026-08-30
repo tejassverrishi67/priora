@@ -158,6 +158,26 @@ body {
   background-position: right 12px center;
 }
 
+/* Transient confirmation shown when the underlying-AI engine is swapped.
+   Makes the point of the control explicit: the raw score changed, the six
+   PriorA layers did not. Fades in on change, eases out a few seconds later. */
+.engine-swap-note {
+  margin: 0 0 18px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  border-left: 2px solid var(--blue);
+  padding-left: 10px;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.28s ease, transform 0.28s ease;
+}
+
+.engine-swap-note.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 /* ---- L4: nurses-on-shift segmented control ------------------------- */
 
 .nurse-seg {
@@ -795,6 +815,64 @@ main {
   50% {
     box-shadow: 0 0 0 3px var(--yellow), 0 0 16px 3px rgba(245, 183, 0, 0.5);
   }
+}
+
+/* ---- Slice 8: Judge Mode ------------------------------------------- */
+
+/* The Judge Mode toggle — and any pill used as an on/off control. */
+.pill.is-active {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+}
+
+.pill.is-active:hover {
+  background: var(--blue-hover);
+  border-color: var(--blue-hover);
+  color: #fff;
+}
+
+/* With Judge Mode on, every tile and chip is a live control — say so. */
+.judge-on .tile,
+.judge-on .chip {
+  cursor: pointer;
+}
+
+.judge-on .tile:hover {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px var(--blue-tint);
+}
+
+.judge-on .chip:hover {
+  background: var(--blue-tint);
+  color: var(--blue-hover);
+}
+
+/* A patient a judge has set deteriorating. Mirrors .alert-meta: a small
+   in-flow pill, never absolutely positioned, so it cannot collide with the
+   rank badge or the legacy alert dot. */
+.induce-meta {
+  display: none;
+  margin-top: 10px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--blue-tint);
+  color: var(--blue-hover);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.tile--induced .induce-meta {
+  display: inline-block;
+}
+
+.induce-meta::before {
+  content: '\25CF'; /* ● */
+  margin-right: 5px;
+  font-size: 8px;
+  vertical-align: 1px;
 }
 
 /* ---- Responsive column counts ------------------------------------- */

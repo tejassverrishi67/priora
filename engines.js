@@ -115,7 +115,7 @@ export function brokenModel(p) {
 
 // Registry so app.js can offer the scorer as a swappable choice.
 export const ENGINES = {
-  epic: { label: 'Epic-style thresholds', score: epicStyle },
+  epic: { label: 'Epic-style', score: epicStyle },
   news: { label: 'NEWS score', score: newsScore },
-  broken: { label: 'Vendor ML model', score: brokenModel },
+  broken: { label: 'Deliberately broken', score: brokenModel },
 };

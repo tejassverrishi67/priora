@@ -1,6 +1,6 @@
 // app.js — simulation loop + rendering. The only file that touches the DOM.
 
-import { makePatients, stepPatients } from './patients.js';
+import { makePatients, stepPatients, induceDeterioration } from './patients.js';
 import { ENGINES } from './engines.js';
 import {
   rankPatients,
@@ -22,7 +22,9 @@ const heroLabelEl = document.getElementById('heroLabel');
 const prioraBtn = document.getElementById('prioraBtn');
 const pauseBtn = document.getElementById('pauseBtn');
 const resetBtn = document.getElementById('resetBtn');
+const judgeBtn = document.getElementById('judgeBtn');
 const engineSel = document.getElementById('engineSel');
+const engineSwapNoteEl = document.getElementById('engineSwapNote');
 const compareEl = document.getElementById('compare');
 const nurseSegEl = document.getElementById('nurseSeg');
 const assignCaptionEl = document.getElementById('assignCaption');
@@ -79,6 +81,7 @@ let timer = null;
 let prioraActive = false; // flipped by "Activate PriorA"; owns the wall once set
 let nurseCount = 1; // L4: nurses on shift, set by the header segmented control
 let bedNurse = new Map(); // bed -> nurse letter, from the last L4 assignment
+let judgeMode = false; // Slice 8: clicking a tile induces live deterioration
 
 // L6 state.
 let priorityTrail = new Map();   // bed -> recent L3 priority samples
@@ -98,6 +101,7 @@ function fmtVital(key, value) {
 function buildTile(p) {
   const card = document.createElement('article');
   card.className = 'tile';
+  card.dataset.bed = p.bed;
 
   const dot = document.createElement('span');
   dot.className = 'alert-dot';
@@ -139,7 +143,14 @@ function buildTile(p) {
   const meta = document.createElement('div');
   meta.className = 'alert-meta';
 
-  card.append(dot, head, vitals, meta);
+  // Slice 8: a small in-flow pill shown only while a judge-induced slide is
+  // running. Mirrors .alert-meta (never absolutely positioned) so it can't
+  // collide with the rank badge or the legacy alert dot.
+  const induceMeta = document.createElement('div');
+  induceMeta.className = 'induce-meta';
+  induceMeta.textContent = 'Induced · live';
+
+  card.append(dot, head, vitals, meta, induceMeta);
   return { card, valueEls, meta };
 }
 
@@ -164,6 +175,7 @@ function paintVitals() {
   for (const p of patients) {
     const tile = tiles.get(p.bed);
     if (!tile) continue;
+    tile.card.classList.toggle('tile--induced', p.inducedStart != null);
     for (const v of VITALS) {
       tile.valueEls[v.key].textContent = fmtVital(v.key, p[v.key]);
     }
@@ -744,6 +756,8 @@ function resetSim() {
   watchTenure = new Map();
   wasEverAssigned = new Set();
   toastStackEl.textContent = '';
+  engineSwapNoteEl.classList.remove('is-visible');
+  engineSwapNoteEl.hidden = true;
   compareEl.hidden = true;
   compareEl.classList.remove('is-visible');
   compareEl.textContent = '';
@@ -775,6 +789,24 @@ nurseSegEl.addEventListener('click', (e) => {
   if (prioraActive) renderPrioraState();
 });
 
+let engineSwapNoteTimer = null;
+
+// The whole point of the control, made visible: swapping only changes which
+// engines.js function feeds the raw score. Nothing in priora.js is touched —
+// L1 and velocity keep reading raw vitals, so the priority list barely moves
+// even when the engine goes haywire.
+function flashEngineSwapNote() {
+  engineSwapNoteEl.hidden = false;
+  requestAnimationFrame(() => engineSwapNoteEl.classList.add('is-visible'));
+  if (engineSwapNoteTimer) clearTimeout(engineSwapNoteTimer);
+  engineSwapNoteTimer = window.setTimeout(() => {
+    engineSwapNoteEl.classList.remove('is-visible');
+    window.setTimeout(() => {
+      engineSwapNoteEl.hidden = true;
+    }, 320);
+  }, 4200);
+}
+
 engineSel.addEventListener('change', () => {
   selectedEngine = engineSel.value;
   // Re-baseline against the new engine's opening set instead of counting the
@@ -787,6 +819,43 @@ engineSel.addEventListener('change', () => {
   evaluateAlerts();
   if (prioraActive) renderPrioraState();
   else paintAlerts();
+  flashEngineSwapNote();
+});
+
+// ---- Slice 8: JUDGE MODE ----------------------------------------------
+// A live "nothing up my sleeve". With Judge Mode on, clicking any patient
+// tile (or watchlist chip) starts that patient genuinely deteriorating — a
+// ~20-tick drift toward critical vitals, handed straight to patients.js.
+// PriorA never learns a human did it: L1 sees the deviation climb and L3
+// re-ranks them into the assigned queue exactly as it does for the scripted
+// crashers. No branch anywhere in priora.js or the assignment path.
+function induceBed(bed) {
+  const p = patients.find((x) => x.bed === bed);
+  if (!p || p.inducedStart != null) return;
+  induceDeterioration(p, p.tick);
+  const tile = tiles.get(bed);
+  if (tile) tile.card.classList.add('tile--induced');
+  showToast(`BED ${bed} — live deterioration started`);
+  if (prioraActive) renderPrioraState();
+}
+
+function onJudgeClick(e) {
+  if (!judgeMode) return;
+  const el = e.target.closest('[data-bed]');
+  if (!el) return;
+  induceBed(Number(el.dataset.bed));
+}
+
+wallEl.addEventListener('click', onJudgeClick);
+watchlistEl.addEventListener('click', onJudgeClick);
+
+judgeBtn.addEventListener('click', () => {
+  judgeMode = !judgeMode;
+  judgeBtn.classList.toggle('is-active', judgeMode);
+  judgeBtn.setAttribute('aria-pressed', String(judgeMode));
+  judgeBtn.textContent = judgeMode ? 'Judge Mode · On' : 'Judge Mode';
+  wallEl.classList.toggle('judge-on', judgeMode);
+  watchlistEl.classList.toggle('judge-on', judgeMode);
 });
 
 renderWall();

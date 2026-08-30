@@ -32,20 +32,24 @@
         </span>
       </div>
       <label class="engine-pick">
-        <span class="engine-pick-label">Engine</span>
+        <span class="engine-pick-label">Underlying AI</span>
         <select class="pill select" id="engineSel">
-          <option value="epic">Epic-style thresholds</option>
+          <option value="epic">Epic-style</option>
           <option value="news">NEWS score</option>
-          <option value="broken">Vendor ML model</option>
+          <option value="broken">Deliberately broken</option>
         </select>
       </label>
       <button class="pill pill--priora" id="prioraBtn" type="button">Activate PriorA</button>
+      <button class="pill" id="judgeBtn" type="button" aria-pressed="false">Judge Mode</button>
       <button class="pill" id="pauseBtn" type="button">Pause</button>
       <button class="pill" id="resetBtn" type="button">Reset</button>
     </div>
   </header>
 
   <main>
+    <p class="engine-swap-note" id="engineSwapNote" role="status" hidden>
+      Prediction engine swapped. PriorA layers unchanged.
+    </p>
     <section class="wall" id="wall" aria-label="ICU patient wall"></section>
     <div class="assign-caption" id="assignCaption" hidden></div>
     <div class="watchlist" id="watchlist" hidden></div>

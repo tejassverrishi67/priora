@@ -90,17 +90,19 @@ L6 Safety — hard threshold override + auto re-escalation.
 
 &#x20;  headless ranking test.
 
-\- Once a patient has been flat-critical and unreviewed for an extended
+\- L6c (isStaleCritical) guarantees a plateaued critical patient (verified
 
-&#x20;  period (Bed 12 post-tick ~55), holding them at #1 against an actively
+&#x20;  against Bed 12: 4 of 5 population-abnormal bands, continuously) is
 
-&#x20;  deteriorating patient becomes L6's responsibility (hard safety floor +
+&#x20;  pinned back into the assigned queue within STALE\_GRACE\_TICKS (15) ticks
 
-&#x20;  staleness escalation), not L3's. This is correct separation of concerns,
+&#x20;  of first appearing on the watchlist, provided they were surfaced as a
 
-&#x20;  not a known bug — do not attempt to fix this by changing L1/L3 weights
+&#x20;  priority at least once (wasEverAssigned) and remain unreviewed
 
-&#x20;  or the baseline window again.
+&#x20;  (!treated). This is a bounded worst-case, not a best-effort — verified
+
+&#x20;  by headless test through tick 150 with zero fallout after pinning.
 
 \- Beds 3, 9, 18, 22, 27, 35 (chronically abnormal) must NEVER rank top 2,
 
