@@ -12,6 +12,8 @@
 //   L5  buildExplanation(patient)          — the deltas as a spoken handoff
 //   L6  safetyFloor(patient)               — absolute-emergency hard override
 //       shouldReescalate(patient, trail)   — a worsening watchlist patient returns
+//       isStaleCritical(patient, recent)   — a flat-critical, never-reviewed
+//                                            watchlist patient returns
 
 // ---------------------------------------------------------------------------
 // Per-vital constants. These describe MEASUREMENT scale, never population
@@ -380,6 +382,57 @@ export function shouldReescalate(patient, priorityTrail) {
   const earliest = trail[0];
   if (current < REESCALATE_FLOOR) return false;
   return current - earliest >= REESCALATE_RISE;
+}
+
+// --- L6c — STALENESS ESCALATION -------------------------------------------
+//
+// shouldReescalate() catches a watchlist patient who is getting WORSE. This
+// catches the opposite failure: a patient who was genuinely critical, never
+// got better, never got seen, and whose L1 deviation has since decayed to ~0
+// simply because their own plateau filled the trailing baseline window. By the
+// time that happens their priority is gone, so there is nothing for L3/L4 or
+// shouldReescalate() to hold onto — they just quietly fall off.
+//
+// The judgement here is deliberately NOT personalized: it compares the
+// patient's CURRENT raw vitals against a coarse "this is not normal for
+// anyone" population band, because L1's personal, trailing view is exactly
+// what stopped tracking them. Crossing two or more bands is "still clearly
+// critical". None of L1/L3's constants are touched — these are L6's own.
+const STALE_HR_HIGH = 125;
+const STALE_HR_LOW = 45;
+const STALE_RR_HIGH = 28;
+const STALE_SBP_LOW = 90;
+const STALE_SPO2_LOW = 91;
+const STALE_TEMP_HIGH = 38.6;
+const STALE_BANDS_REQUIRED = 2;
+
+function populationAbnormalBands(v) {
+  let n = 0;
+  if (v.hr > STALE_HR_HIGH || v.hr < STALE_HR_LOW) n += 1;
+  if (v.rr > STALE_RR_HIGH) n += 1;
+  if (v.sbp < STALE_SBP_LOW) n += 1;
+  if (v.spo2 < STALE_SPO2_LOW) n += 1;
+  if (v.temp > STALE_TEMP_HIGH) n += 1;
+  return n;
+}
+
+// isStaleCritical(patient, wasAssignedRecently) — true when ALL of:
+//   1. their CURRENT vitals still clearly breach a population "abnormal for
+//      anyone" band (>= STALE_BANDS_REQUIRED bands), i.e. they were a real
+//      critical patient and still are — not decayed-baseline noise;
+//   2. patient.treated is not set — nobody has actually reviewed them;
+//   3. they have NOT been assigned recently — the caller passes
+//      wasAssignedRecently=false once the patient has sat on the watchlist
+//      past its grace/tenure threshold. While they were assigned (or only
+//      just dropped) this stays true and the check is suppressed.
+export function isStaleCritical(patient, wasAssignedRecently) {
+  if (!patient || wasAssignedRecently) return false;
+  if (patient.treated) return false;
+  const v =
+    patient.history && patient.history.length
+      ? patient.history[patient.history.length - 1]
+      : patient;
+  return populationAbnormalBands(v) >= STALE_BANDS_REQUIRED;
 }
 
 // ---------------------------------------------------------------------------

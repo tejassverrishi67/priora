@@ -9,6 +9,7 @@ import {
   nurseLabelForBed,
   safetyFloor,
   shouldReescalate,
+  isStaleCritical,
 } from './priora.js';
 
 const wallEl = document.getElementById('wall');
@@ -48,6 +49,11 @@ const ESCALATE_HOLD_MS = 900;
 // merely passed through the strip for a tick or two at activation would fire
 // the "worsening, escalated" beat on their way to a normal priority slot.
 const REESCALATE_MIN_TENURE = 5;
+// L6c staleness: once a patient who was genuinely surfaced as critical has sat
+// on the watchlist this many ticks without ever being reviewed, a still-clearly-
+// abnormal vitals reading re-escalates them — "lost, not better". A short grace
+// period rather than an instant snap-back.
+const STALE_GRACE_TICKS = 15;
 
 // The legacy layer counts alerts from the start of the shift, not just the
 // ones lit right now. Seeded so the hero metric opens on a number that already
@@ -83,6 +89,7 @@ let escalateToasted = new Set(); // beds already announced by a toast this shift
 let enteringBeds = new Set();    // beds that should play the entrance animation next render
 let prevWatchlistBeds = new Set(); // watchlist membership from the previous render
 let watchTenure = new Map();      // bed -> consecutive renders spent on the watchlist
+let wasEverAssigned = new Set();  // beds L3/L4/L6 has surfaced as a priority at least once
 
 function fmtVital(key, value) {
   return key === 'temp' ? value.toFixed(1) : String(value);
@@ -516,20 +523,43 @@ function detectEscalations(ranking) {
       continue;
     }
     if (!prevWatchlistBeds.has(bed)) continue;
-    if ((watchTenure.get(bed) || 0) < REESCALATE_MIN_TENURE) continue;
-    if (!shouldReescalate(r.patient, priorityTrail.get(bed))) continue;
-    beginEscalation(bed);
+
+    const tenure = watchTenure.get(bed) || 0;
+
+    // L6b — getting WORSE: a sharp upward priority trail.
+    if (
+      tenure >= REESCALATE_MIN_TENURE &&
+      shouldReescalate(r.patient, priorityTrail.get(bed))
+    ) {
+      beginEscalation(bed, 'worsening');
+      continue;
+    }
+
+    // L6c — LOST, not better: was surfaced as critical, still clearly abnormal
+    // by population standards, never reviewed, and has sat on the watchlist
+    // past the grace period.
+    if (
+      wasEverAssigned.has(bed) &&
+      isStaleCritical(r.patient, tenure < STALE_GRACE_TICKS)
+    ) {
+      beginEscalation(bed, 'stale');
+    }
   }
 }
 
 // The visible beat: for ESCALATE_HOLD_MS the bed stays on the watchlist with a
 // glowing chip and a quiet toast fires; then it is pinned into the assigned
 // queue for good (forcedBeds — never silently dropped again) and its tile
-// plays the entrance animation.
-function beginEscalation(bed) {
+// plays the entrance animation. `reason` only changes the toast wording — the
+// mechanic is identical for a worsening patient and a stale-critical one.
+function beginEscalation(bed, reason) {
   escalatePending.add(bed);
   escalateToasted.add(bed);
-  showToast(`BED ${bed} — condition worsening, escalated`);
+  showToast(
+    reason === 'stale'
+      ? `BED ${bed} — still critical, never reviewed, re-escalated`
+      : `BED ${bed} — condition worsening, escalated`
+  );
   // buildWatchlist paints .chip--escalating for any bed still in escalatePending.
 
   window.setTimeout(() => {
@@ -583,6 +613,7 @@ function activatePriora() {
   prevWatchlistBeds = new Set(
     ranking.map((r) => r.bed).filter((b) => !topBeds.includes(b))
   );
+  for (const b of topBeds) wasEverAssigned.add(b);
 
   wallEl.classList.add('wall--priora');
 
@@ -657,7 +688,10 @@ function renderPrioraState() {
     ranking.map((r) => r.bed).filter((b) => !topBeds.includes(b))
   );
   for (const b of watchNow) watchTenure.set(b, (watchTenure.get(b) || 0) + 1);
-  for (const b of topBeds) watchTenure.set(b, 0);
+  for (const b of topBeds) {
+    watchTenure.set(b, 0);
+    wasEverAssigned.add(b);
+  }
   prevWatchlistBeds = watchNow;
 }
 
@@ -708,6 +742,7 @@ function resetSim() {
   enteringBeds = new Set();
   prevWatchlistBeds = new Set();
   watchTenure = new Map();
+  wasEverAssigned = new Set();
   toastStackEl.textContent = '';
   compareEl.hidden = true;
   compareEl.classList.remove('is-visible');
