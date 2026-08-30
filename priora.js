@@ -10,6 +10,8 @@
 //   L3  rankPatients(patients, scores)     — one ordering over the whole unit
 //   L4  assignToNurses(ranked, nurseCount) — split the ranked list across shift
 //   L5  buildExplanation(patient)          — the deltas as a spoken handoff
+//   L6  safetyFloor(patient)               — absolute-emergency hard override
+//       shouldReescalate(patient, trail)   — a worsening watchlist patient returns
 
 // ---------------------------------------------------------------------------
 // Per-vital constants. These describe MEASUREMENT scale, never population
@@ -303,6 +305,81 @@ export function assignToNurses(rankedPatients, nurseCount, capacityPerNurse = 2)
     assignments: assignments.map((a) => ({ nurse: a.nurse, patients: a.patients })),
     watchlist,
   };
+}
+
+// Which nurse letter covers `bed` at a given staffing level. Exported so
+// callers that inject a patient outside the normal L4 walk (an L6 safety
+// override, a re-escalation) can still label the tile with the right nurse.
+export function nurseLabelForBed(bed, nurseCount) {
+  const n = Math.max(1, Math.min(3, Math.round(Number(nurseCount) || 1)));
+  const ranges = BED_RANGES[n];
+  for (let i = 0; i < ranges.length; i++) {
+    if (bed >= ranges[i][0] && bed <= ranges[i][1]) return NURSE_LABELS[i];
+  }
+  return NURSE_LABELS[0];
+}
+
+// ---------------------------------------------------------------------------
+// L6 — SAFETY
+//
+// The floor under the whole stack. L1–L4 are about ATTENTION ECONOMY — who is
+// worth a nurse's scarce time. L6 is about the two or three numbers that mean
+// "this person may be dead in minutes" no matter how the ranking math shook
+// out. It does two things:
+//
+//   safetyFloor(patient)      — a hard population threshold. If a raw vital is
+//                               past it, the patient is assigned THIS tick,
+//                               ahead of the ranking, at the most severe
+//                               visual treatment in the system. No
+//                               personalization, no corroboration — that is
+//                               the point of a floor.
+//
+//   shouldReescalate(p, trail) — a patient can be correctly watchlisted now and
+//                               genuinely deteriorating. If their L3 priority
+//                               has climbed sharply over the last several
+//                               ticks, they are pulled back into the assigned
+//                               queue automatically. Nothing is ever deleted;
+//                               anyone who worsens returns.
+
+// Absolute-emergency thresholds on RAW vitals. Crossing any one is sufficient.
+// These are deliberately extreme — well past the engine's alert line — so the
+// floor stays rare and unambiguous.
+const SAFETY_SPO2_MIN = 88;
+const SAFETY_SBP_MIN = 80;
+const SAFETY_HR_MAX = 140;
+
+export function safetyFloor(patient) {
+  if (!patient) return false;
+  // Read the freshest raw sample directly, exactly like L1 — never a score.
+  const v =
+    patient.history && patient.history.length
+      ? patient.history[patient.history.length - 1]
+      : patient;
+  return (
+    v.spo2 < SAFETY_SPO2_MIN || v.sbp < SAFETY_SBP_MIN || v.hr > SAFETY_HR_MAX
+  );
+}
+
+// How many recent priority samples define "recent" for re-escalation, and how
+// much total rise across that span counts as "sharp". REESCALATE_FLOOR keeps a
+// patient still sitting in the noise (priority ~0) from re-escalating on a
+// rounding wobble — the climb has to be heading somewhere real.
+const REESCALATE_WINDOW = 10;
+const REESCALATE_RISE = 0.15;
+const REESCALATE_FLOOR = 0.05;
+
+// priorityTrail is the caller's array of this patient's recent L3 priority
+// values, oldest-to-newest (app.js keeps one per bed).
+export function shouldReescalate(patient, priorityTrail) {
+  const trail = Array.isArray(priorityTrail)
+    ? priorityTrail.slice(-REESCALATE_WINDOW)
+    : [];
+  if (trail.length < 4) return false;
+
+  const current = trail[trail.length - 1];
+  const earliest = trail[0];
+  if (current < REESCALATE_FLOOR) return false;
+  return current - earliest >= REESCALATE_RISE;
 }
 
 // ---------------------------------------------------------------------------

@@ -420,6 +420,34 @@ main {
   display: none !important;
 }
 
+/* L6 — ABSOLUTE SAFETY FLOOR. The most severe treatment in the system: a
+   solid black rule and a black badge, categorically past the yellow priority
+   wash. Declared after .tile--priority so it wins on a tile that carries
+   both classes. */
+.tile--critical {
+  background: #FCFCFD;
+  border-color: var(--critical);
+  border-left: 4px solid var(--critical);
+  padding-left: 15px;
+  box-shadow: 0 2px 14px rgba(11, 14, 20, 0.18);
+}
+
+/* A worsening watchlist patient sliding into the assigned queue. */
+.tile--enter {
+  animation: tileEnter 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes tileEnter {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 .rank-badge {
   position: absolute;
   top: 12px;
@@ -438,6 +466,21 @@ main {
   font-size: 10.5px;
   letter-spacing: 0.02em;
   font-variant-numeric: tabular-nums;
+}
+
+/* L6 safety-floor badge: solid black, white text — nothing else in the
+   system looks like this. */
+.rank-badge--critical {
+  background: var(--critical);
+  border-color: var(--critical);
+  color: #fff;
+  letter-spacing: 0.06em;
+}
+
+.rank-badge--critical::before {
+  content: '▲';
+  margin-right: 4px;
+  font-size: 8px;
 }
 
 /* Minimal "Mark as reviewed" control on priority tiles. */
@@ -657,6 +700,69 @@ main {
   color: var(--text-muted);
 }
 
+/* Permanent reassurance under the strip — the promise the whole L6 layer
+   keeps. */
+.watchlist-note {
+  margin: 12px 0 0;
+  font-size: 11.5px;
+  font-style: italic;
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.watchlist-note.is-visible {
+  opacity: 1;
+}
+
+/* ---- L6 inline toast --------------------------------------------------
+   Quiet by design: a white card with a hairline border and a small mark.
+   It states what happened and fades on its own. */
+.toast-stack {
+  position: fixed;
+  left: 24px;
+  bottom: 24px;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 6px 22px rgba(11, 14, 20, 0.10);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text);
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.28s ease, transform 0.28s ease;
+}
+
+.toast.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+.toast-ico {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--yellow-tint);
+  color: var(--yellow);
+  font-size: 8px;
+}
+
 .chip {
   display: inline-flex;
   align-items: center;
@@ -670,6 +776,25 @@ main {
   font-size: 12px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+  transition: background-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* L6 re-escalation: the chip lights up in place — grey border to a yellow
+   ring with a soft glow — a beat before the patient migrates to the queue. */
+.chip--escalating {
+  background: var(--yellow-tint);
+  color: var(--critical);
+  box-shadow: 0 0 0 2px var(--yellow), 0 0 12px 2px rgba(245, 183, 0, 0.4);
+  animation: chipPulse 1s ease-in-out infinite;
+}
+
+@keyframes chipPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 2px var(--yellow), 0 0 10px 1px rgba(245, 183, 0, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 0 3px var(--yellow), 0 0 16px 3px rgba(245, 183, 0, 0.5);
+  }
 }
 
 /* ---- Responsive column counts ------------------------------------- */
