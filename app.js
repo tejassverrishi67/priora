@@ -186,9 +186,11 @@ function applyRoles(topRows) {
       card.classList.remove('tile--quiet', 'tile--collapsed');
       card.classList.add('tile--priority');
       setBadge(tile, rankByBed.get(bed));
+      setReviewBtn(tile, bed);
       card.dataset.prioraRole = 'priority';
     } else {
       clearBadge(tile);
+      clearReviewBtn(tile);
       card.classList.remove('tile--priority');
       card.classList.add('tile--quiet');
       card.dataset.prioraRole = 'watch';
@@ -209,6 +211,43 @@ function setBadge(tile, rank) {
 function clearBadge(tile) {
   const badge = tile.card.querySelector('.rank-badge');
   if (badge) badge.remove();
+}
+
+// A minimal "Mark as reviewed" control, rendered only on priority tiles. It
+// sets patient.treated = true (the flag rankPatients applies TREATED_DAMPEN to)
+// and re-renders, so the dampening is observable rather than dead code.
+function setReviewBtn(tile, bed) {
+  let btn = tile.card.querySelector('.review-btn');
+  if (!btn) {
+    btn = document.createElement('button');
+    btn.className = 'review-btn';
+    btn.type = 'button';
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const p = patients.find((x) => x.bed === bed);
+      if (p) {
+        const before = rankPatients(patients, currentScores());
+        p.treated = true;
+        const after = rankPatients(patients, currentScores());
+        renderPrioraState();
+        const b = before.find((r) => r.bed === bed);
+        const a = after.find((r) => r.bed === bed);
+        console.log(
+          `[PriorA] bed ${bed} marked treated — priority ${b.priority.toFixed(3)} (#${b.rank}) -> ${a.priority.toFixed(3)} (#${a.rank}); new #1 is bed ${after[0].bed}`
+        );
+      }
+    });
+    tile.card.append(btn);
+  }
+  const p = patients.find((x) => x.bed === bed);
+  const treated = !!(p && p.treated);
+  btn.textContent = treated ? 'Reviewed' : 'Mark as reviewed';
+  btn.disabled = treated;
+}
+
+function clearReviewBtn(tile) {
+  const btn = tile.card.querySelector('.review-btn');
+  if (btn) btn.remove();
 }
 
 // Put the priority tiles first in the grid so they sit top-left.

@@ -387,6 +387,33 @@ main {
   font-variant-numeric: tabular-nums;
 }
 
+/* Minimal "Mark as reviewed" control on priority tiles. */
+.review-btn {
+  margin-top: 12px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--blue);
+  background: var(--blue-tint);
+  color: var(--blue-hover);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+}
+
+.review-btn:hover:not(:disabled) {
+  background: var(--blue);
+  color: #fff;
+}
+
+.review-btn:disabled {
+  border-color: var(--border);
+  background: transparent;
+  color: var(--text-dim, #6b7280);
+  cursor: default;
+}
+
 /* Everything else compresses into a strip of grey bed-number chips. */
 .watchlist {
   display: flex;

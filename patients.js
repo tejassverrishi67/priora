@@ -151,6 +151,7 @@ export function makePatients() {
       temp: 0,
       history: [],
       tick: 0,
+      treated: false,
       archetype,
     };
     Object.assign(p, computeVitals(p));

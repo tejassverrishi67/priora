@@ -25,6 +25,17 @@ const VITAL_FLOORS = {
   temp: 0.2,
 };
 
+// How many of a patient's most recent history ticks L1 draws its median and
+// spread from. The full history array is unbounded and, once a scripted crash
+// ramp plateaus, more than half of a late-activated patient's samples can come
+// from their POST-crash state — the rolling median then drifts to follow the
+// crash and deviation collapses. Bounding L1 to a recent window keeps a
+// genuine slow-onset baseline shift meaningful (a real drift still moves the
+// window with it) while stopping a patient's own plateau from eventually
+// erasing their deviation. Warmup (baselineEstablished) still counts absolute
+// history length, not this slice.
+const BASELINE_WINDOW = 30;
+
 // Normalized velocity below this is just the sawtooth of integer-rounded
 // vitals flipping between two adjacent values over the window — every patient
 // carries roughly this much whether or not they are trending. Subtract it so
@@ -94,9 +105,12 @@ function clamp01(x) {
 // while a patient sliding away from their own norm lights up even when the
 // engine is blind or the population thresholds still call them "fine".
 export function personalBaseline(patient) {
-  const history = patient && patient.history ? patient.history : [];
-  if (history.length < 2) return 0;
+  const fullHistory = patient && patient.history ? patient.history : [];
+  if (fullHistory.length < 2) return 0;
 
+  // Median/spread come from a bounded recent window; `current` is still the
+  // newest sample (the last element of that window).
+  const history = fullHistory.slice(-BASELINE_WINDOW);
   const current = history[history.length - 1];
   let maxDeviation = 0;
 
