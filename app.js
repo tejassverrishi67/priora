@@ -259,7 +259,9 @@ function applyRoles(topRows) {
       // Keep the footer controls in a stable order even for a tile that has
       // cycled watch -> priority (its handoff/hint were appended on an earlier
       // pass, so a re-created review button would otherwise land last).
-      for (const sel of ['.review-btn', '.handoff', '.expand-hint']) {
+      // '.induce-meta' leads: it is patient status, not a footer action, so it
+      // reorders to sit right after .vitals and ahead of the footer controls.
+      for (const sel of ['.induce-meta', '.review-btn', '.handoff', '.expand-hint']) {
         const el = card.querySelector(sel);
         if (el) card.append(el);
       }

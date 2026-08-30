@@ -103,6 +103,12 @@ body {
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
+  /* Once PriorA + Judge Mode are live the cluster is clock + nurse segment +
+     engine select + four pills. Without wrapping, flex overflow spills past
+     the track's left edge and slides under the hero metric. Wrapping keeps it
+     inside its column on every width. */
+  flex-wrap: wrap;
+  row-gap: 10px;
 }
 
 .clock {
@@ -300,6 +306,18 @@ main {
   gap: 8px;
 }
 
+/* Reserve room for the absolutely-positioned .rank-badge so the patient name
+   truncates cleanly instead of sliding under it. Only priority tiles carry a
+   badge; a two-digit "#12 · Nurse C" needs ~104px, the wider
+   "CRITICAL · Nurse X" more. */
+.tile--priority .tile-head {
+  padding-right: 104px;
+}
+
+.tile--critical .tile-head {
+  padding-right: 116px;
+}
+
 .bed {
   font-family: var(--font-display);
   font-weight: 700;
@@ -476,6 +494,7 @@ main {
   align-items: center;
   justify-content: center;
   height: 20px;
+  max-width: calc(100% - 24px);
   padding: 0 10px;
   border-radius: 999px;
   background: var(--surface);
@@ -486,6 +505,9 @@ main {
   font-size: 10.5px;
   letter-spacing: 0.02em;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* L6 safety-floor badge: solid black, white text — nothing else in the
@@ -494,13 +516,17 @@ main {
   background: var(--critical);
   border-color: var(--critical);
   color: #fff;
-  letter-spacing: 0.06em;
+  /* "CRITICAL · Nurse A" is far longer than "#1 · Nurse A" — tighten it so it
+     still fits a narrow priority tile without clipping the patient name. */
+  letter-spacing: 0.03em;
+  font-size: 9px;
+  padding: 0 8px;
 }
 
 .rank-badge--critical::before {
   content: '▲';
-  margin-right: 4px;
-  font-size: 8px;
+  margin-right: 3px;
+  font-size: 7px;
 }
 
 /* Minimal "Mark as reviewed" control on priority tiles. */
@@ -864,7 +890,12 @@ main {
   font-variant-numeric: tabular-nums;
 }
 
-.tile--induced .induce-meta {
+/* Only surface the pill on a priority tile. A watchlisted (.tile--quiet)
+   patient is represented by a strip chip and its tile is hidden in normal
+   operation; showing a blue-tint pill on the faded card — even briefly mid
+   collapse — reads as unintentional. paintVitals() still keeps .tile--induced
+   on every tile so the state is correct the moment it becomes a priority. */
+.tile--priority.tile--induced .induce-meta {
   display: inline-block;
 }
 
@@ -880,6 +911,35 @@ main {
 @media (max-width: 1240px) {
   .wall {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* Header, step 1: drop the tiny uppercase field labels before the control
+   cluster is forced to wrap. Reclaims ~180px — enough to keep clock, nurse
+   segment, engine select and the four pills on one row down to ~1100px. */
+@media (max-width: 1320px) {
+  .nurse-seg-label,
+  .engine-pick-label {
+    display: none;
+  }
+}
+
+/* Header, step 2: below ~1100px the three-column topbar can't hold brand,
+   hero and the control cluster side by side. Give the hero its own full
+   row — the same move the 680px rule makes — so nothing collides. */
+@media (max-width: 1100px) {
+  .topbar {
+    grid-template-columns: 1fr auto;
+    row-gap: 14px;
+  }
+
+  .hero {
+    order: 3;
+    grid-column: 1 / -1;
+  }
+
+  .controls {
+    justify-content: flex-start;
   }
 }
 
