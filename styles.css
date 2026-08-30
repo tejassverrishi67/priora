@@ -55,10 +55,10 @@ body {
   top: 0;
   z-index: 10;
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: minmax(0, 1fr) auto minmax(min-content, 1fr);
   align-items: center;
-  gap: 24px;
-  padding: 18px 32px;
+  gap: 20px;
+  padding: 18px 28px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
@@ -156,6 +156,59 @@ body {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='none' stroke='%235B6472' stroke-width='1.5' d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 12px center;
+}
+
+/* ---- L4: nurses-on-shift segmented control ------------------------- */
+
+.nurse-seg {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.nurse-seg-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.nurse-seg-opts {
+  display: inline-flex;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.nurse-opt {
+  appearance: none;
+  border: 0;
+  background: var(--surface);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+.nurse-opt + .nurse-opt {
+  border-left: 1px solid var(--border);
+}
+
+.nurse-opt:hover:not(.is-active) {
+  background: var(--blue-tint);
+  color: var(--blue-hover);
+}
+
+.nurse-opt.is-active {
+  background: var(--blue);
+  color: #fff;
 }
 
 /* ---- Wall ---------------------------------------------------------- */
@@ -374,16 +427,16 @@ main {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 24px;
-  height: 19px;
-  padding: 0 7px;
+  height: 20px;
+  padding: 0 10px;
   border-radius: 999px;
-  background: var(--yellow);
-  color: var(--critical);
+  background: var(--surface);
+  border: 1px solid var(--blue);
+  color: var(--blue-hover);
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 11px;
-  letter-spacing: 0.01em;
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
   font-variant-numeric: tabular-nums;
 }
 
@@ -553,6 +606,26 @@ main {
     padding-top: 24px;
     border-top: 1px solid var(--border);
   }
+}
+
+/* L4 capacity caption — sits between the wall and the watchlist strip and
+   tracks the nurses-on-shift control. */
+.assign-caption {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* When the caption is showing it owns the divider; the watchlist tucks
+   straight under it. */
+.assign-caption:not([hidden]) + .watchlist {
+  margin-top: 12px;
+  padding-top: 0;
+  border-top: 0;
 }
 
 /* Everything else compresses into a strip of grey bed-number chips. */

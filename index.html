@@ -23,6 +23,14 @@
 
     <div class="controls">
       <span class="clock" id="clock">tick 0</span>
+      <div class="nurse-seg" id="nurseSeg" role="group" aria-label="Nurses on shift">
+        <span class="nurse-seg-label">Nurses on shift</span>
+        <span class="nurse-seg-opts">
+          <button class="nurse-opt is-active" type="button" data-n="1">1</button>
+          <button class="nurse-opt" type="button" data-n="2">2</button>
+          <button class="nurse-opt" type="button" data-n="3">3</button>
+        </span>
+      </div>
       <label class="engine-pick">
         <span class="engine-pick-label">Engine</span>
         <select class="pill select" id="engineSel">
@@ -39,6 +47,7 @@
 
   <main>
     <section class="wall" id="wall" aria-label="ICU patient wall"></section>
+    <div class="assign-caption" id="assignCaption" hidden></div>
     <div class="watchlist" id="watchlist" hidden></div>
     <section class="compare" id="compare" aria-label="What most systems show vs. what PriorA shows" hidden></section>
   </main>

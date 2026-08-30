@@ -8,6 +8,7 @@
 //   L1  personalBaseline(patient)          — drift from the patient's OWN norm
 //       velocity(patient)                  — how fast that patient is moving
 //   L3  rankPatients(patients, scores)     — one ordering over the whole unit
+//   L4  assignToNurses(ranked, nurseCount) — split the ranked list across shift
 //   L5  buildExplanation(patient)          — the deltas as a spoken handoff
 
 // ---------------------------------------------------------------------------
@@ -227,6 +228,81 @@ export function rankPatients(patients, engineScores) {
   });
 
   return rows;
+}
+
+// ---------------------------------------------------------------------------
+// L4 — STAFF ASSIGNMENT
+//
+// Take L3's single ordering and hand it to the nurses actually on shift. Each
+// nurse owns a contiguous bed range; we walk the ranked list from the top and
+// drop each patient on the nurse who covers their bed, until that nurse is
+// full. Everyone left over — whether their nurse ran out of room or their
+// priority never justified a visit — falls to one shared watchlist.
+//
+// The staffing dial changes DEPTH, never BREADTH: a second or third nurse lets
+// PriorA reach further down the ranked list, but a low-priority patient is
+// never promoted just because there is now a spare pair of hands. That gate is
+// MEANINGFUL_PRIORITY below — without it, extra capacity would rope in the
+// stable and chronically-abnormal patients that L3 has already flattened to a
+// ~0 priority, which is exactly the false-alarm spread this layer must not do.
+
+// Contiguous bed ranges [firstBed, lastBed] each nurse covers, keyed by how
+// many nurses are on shift. Ranges tile the whole 40-bed unit with no gaps or
+// overlap so every patient maps to exactly one nurse.
+const BED_RANGES = {
+  1: [[1, 40]],
+  2: [[1, 20], [21, 40]],
+  3: [[1, 13], [14, 27], [28, 40]],
+};
+
+const NURSE_LABELS = ['A', 'B', 'C'];
+
+// L3 flattens stable and chronically-abnormal patients to a priority at or near
+// zero. A genuinely deteriorating patient clears this comfortably (deviation
+// and velocity both sit well above their noise bands by the time they matter).
+// Anything below it is noise-floor and stays on the watchlist no matter how
+// many nurses are free.
+const MEANINGFUL_PRIORITY = 0.05;
+
+// assignToNurses(rankedPatients, nurseCount, capacityPerNurse = 2)
+//   -> { assignments: [{ nurse, patients: [] }], watchlist: [] }
+//
+// `rankedPatients` is the array rankPatients() returns (already sorted, each row
+// carrying `.bed` and `.priority`). Rows are passed through untouched into
+// either a nurse bucket or the watchlist, preserving rank order.
+export function assignToNurses(rankedPatients, nurseCount, capacityPerNurse = 2) {
+  const n = Math.max(1, Math.min(3, Math.round(Number(nurseCount) || 1)));
+  const cap = Math.max(0, Math.round(Number(capacityPerNurse) || 0));
+  const ranges = BED_RANGES[n];
+
+  const assignments = ranges.map((range, i) => ({
+    nurse: NURSE_LABELS[i],
+    range,
+    patients: [],
+  }));
+  const watchlist = [];
+
+  const nurseForBed = (bed) => {
+    for (const a of assignments) {
+      if (bed >= a.range[0] && bed <= a.range[1]) return a;
+    }
+    return null;
+  };
+
+  for (const row of rankedPatients || []) {
+    const worthAVisit = row && row.priority >= MEANINGFUL_PRIORITY;
+    const nurse = worthAVisit ? nurseForBed(row.bed) : null;
+    if (nurse && nurse.patients.length < cap) {
+      nurse.patients.push(row);
+    } else {
+      watchlist.push(row);
+    }
+  }
+
+  return {
+    assignments: assignments.map((a) => ({ nurse: a.nurse, patients: a.patients })),
+    watchlist,
+  };
 }
 
 // ---------------------------------------------------------------------------

@@ -2,7 +2,7 @@
 
 import { makePatients, stepPatients } from './patients.js';
 import { ENGINES } from './engines.js';
-import { rankPatients, buildExplanation } from './priora.js';
+import { rankPatients, buildExplanation, assignToNurses } from './priora.js';
 
 const wallEl = document.getElementById('wall');
 const watchlistEl = document.getElementById('watchlist');
@@ -16,16 +16,18 @@ const pauseBtn = document.getElementById('pauseBtn');
 const resetBtn = document.getElementById('resetBtn');
 const engineSel = document.getElementById('engineSel');
 const compareEl = document.getElementById('compare');
+const nurseSegEl = document.getElementById('nurseSeg');
+const assignCaptionEl = document.getElementById('assignCaption');
 
 const TICK_MS = 1000;
 
 // Collapse-transition timing. One eased breath: priority tiles bloom, the
 // rest go quiet, then fold into the watchlist strip.
 const EXHALE_MS = 480;
-// PriorA surfaces the two highest-ranked patients as PRIORITY; everyone else
-// is watchlist. Two is a deliberate ceiling — L4 will widen it per nurse on
-// shift, but the base reveal always names exactly the top pair.
-const PRIORITY_COUNT = 2;
+// L4 staffing. Each nurse on shift can hold this many priority patients, so the
+// number of PRIORITY tiles is nurseCount * CAPACITY_PER_NURSE — 2, 4, or 6.
+// Everyone past that (or below L4's priority floor) is watchlist.
+const CAPACITY_PER_NURSE = 2;
 
 // The legacy layer counts alerts from the start of the shift, not just the
 // ones lit right now. Seeded so the hero metric opens on a number that already
@@ -49,6 +51,8 @@ let primed = false; // once true, new alert episodes bump the shift counter
 let running = true;
 let timer = null;
 let prioraActive = false; // flipped by "Activate PriorA"; owns the wall once set
+let nurseCount = 1; // L4: nurses on shift, set by the header segmented control
+let bedNurse = new Map(); // bed -> nurse letter, from the last L4 assignment
 
 function fmtVital(key, value) {
   return key === 'temp' ? value.toFixed(1) : String(value);
@@ -186,7 +190,7 @@ function applyRoles(topRows) {
       card.hidden = false;
       card.classList.remove('tile--quiet', 'tile--collapsed');
       card.classList.add('tile--priority');
-      setBadge(tile, rankByBed.get(bed));
+      setBadge(tile, rankByBed.get(bed), bedNurse.get(bed));
       setReviewBtn(tile, bed);
       setHandoff(tile, bed);
       bindExpand(tile);
@@ -208,14 +212,14 @@ function applyRoles(topRows) {
   }
 }
 
-function setBadge(tile, rank) {
+function setBadge(tile, rank, nurse) {
   let badge = tile.card.querySelector('.rank-badge');
   if (!badge) {
     badge = document.createElement('span');
     badge.className = 'rank-badge';
     tile.card.append(badge);
   }
-  badge.textContent = `#${rank}`;
+  badge.textContent = nurse ? `#${rank} · Nurse ${nurse}` : `#${rank}`;
 }
 
 function clearBadge(tile) {
@@ -377,8 +381,35 @@ function buildWatchlist(ranking, topBeds) {
   }
 }
 
-function pickTop(ranking) {
-  return ranking.slice(0, PRIORITY_COUNT);
+// L4: rank the whole unit, then split that ranked list across the nurses on
+// shift. Returns the full ranking, the assigned rows in global rank order, and
+// a bed -> nurse map for the priority-tile badges.
+function computeAssignment() {
+  const ranking = rankPatients(patients, currentScores());
+  const { assignments } = assignToNurses(ranking, nurseCount, CAPACITY_PER_NURSE);
+  const map = new Map();
+  const assigned = [];
+  for (const a of assignments) {
+    for (const row of a.patients) {
+      map.set(row.bed, a.nurse);
+      assigned.push(row);
+    }
+  }
+  assigned.sort((x, y) => x.rank - y.rank);
+  return { ranking, assigned, bedNurse: map };
+}
+
+// "Capacity: 4 patients — 36 on watchlist", tracking the segmented control.
+function renderAssignCaption() {
+  if (!prioraActive) {
+    assignCaptionEl.hidden = true;
+    return;
+  }
+  const capacity = nurseCount * CAPACITY_PER_NURSE;
+  const onWatch = patients.length - capacity;
+  assignCaptionEl.textContent =
+    `Capacity: ${capacity} patients — ${onWatch} on watchlist`;
+  assignCaptionEl.hidden = false;
 }
 
 // The brand reveal. Not a data update — an exhale. Priority tiles bloom,
@@ -390,8 +421,9 @@ function activatePriora() {
   prioraBtn.disabled = true;
   prioraBtn.textContent = 'PriorA Active';
 
-  const ranking = rankPatients(patients, currentScores());
-  const topRows = pickTop(ranking);
+  const { ranking, assigned, bedNurse: map } = computeAssignment();
+  bedNurse = map;
+  const topRows = assigned;
   const topBeds = topRows.map((r) => r.bed);
 
   wallEl.classList.add('wall--priora');
@@ -417,6 +449,7 @@ function activatePriora() {
     }
     buildWatchlist(ranking, topBeds);
     watchlistEl.hidden = false;
+    renderAssignCaption();
     renderCompare(ranking);
     requestAnimationFrame(() => {
       watchlistEl.classList.add('is-visible');
@@ -435,8 +468,9 @@ function activatePriora() {
 // Steady-state re-render once PriorA is live: re-rank and reconcile roles
 // without replaying the reveal animation.
 function renderPrioraState() {
-  const ranking = rankPatients(patients, currentScores());
-  const topRows = pickTop(ranking);
+  const { ranking, assigned, bedNurse: map } = computeAssignment();
+  bedNurse = map;
+  const topRows = assigned;
   const topBeds = topRows.map((r) => r.bed);
 
   applyRoles(topRows);
@@ -448,6 +482,7 @@ function renderPrioraState() {
   }
   orderPriorityFirst(topBeds);
   buildWatchlist(ranking, topBeds);
+  renderAssignCaption();
   renderCompare(ranking);
   heroToEl.textContent = topBeds.length;
 }
@@ -485,6 +520,8 @@ function resetSim() {
   watchlistEl.hidden = true;
   watchlistEl.classList.remove('is-visible');
   watchlistEl.textContent = '';
+  assignCaptionEl.hidden = true;
+  assignCaptionEl.textContent = '';
   compareEl.hidden = true;
   compareEl.classList.remove('is-visible');
   compareEl.textContent = '';
@@ -501,6 +538,20 @@ pauseBtn.addEventListener('click', () => {
 resetBtn.addEventListener('click', resetSim);
 
 prioraBtn.addEventListener('click', activatePriora);
+
+// L4: nurses-on-shift segmented control. Changing it re-runs assignment and
+// re-renders immediately (only visible once PriorA is active).
+nurseSegEl.addEventListener('click', (e) => {
+  const btn = e.target.closest('.nurse-opt');
+  if (!btn) return;
+  const n = Number(btn.dataset.n);
+  if (!n || n === nurseCount) return;
+  nurseCount = n;
+  for (const b of nurseSegEl.querySelectorAll('.nurse-opt')) {
+    b.classList.toggle('is-active', Number(b.dataset.n) === n);
+  }
+  if (prioraActive) renderPrioraState();
+});
 
 engineSel.addEventListener('change', () => {
   selectedEngine = engineSel.value;
