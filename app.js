@@ -2,7 +2,7 @@
 
 import { makePatients, stepPatients } from './patients.js';
 import { ENGINES } from './engines.js';
-import { rankPatients } from './priora.js';
+import { rankPatients, buildExplanation } from './priora.js';
 
 const wallEl = document.getElementById('wall');
 const watchlistEl = document.getElementById('watchlist');
@@ -15,6 +15,7 @@ const prioraBtn = document.getElementById('prioraBtn');
 const pauseBtn = document.getElementById('pauseBtn');
 const resetBtn = document.getElementById('resetBtn');
 const engineSel = document.getElementById('engineSel');
+const compareEl = document.getElementById('compare');
 
 const TICK_MS = 1000;
 
@@ -187,11 +188,20 @@ function applyRoles(topRows) {
       card.classList.add('tile--priority');
       setBadge(tile, rankByBed.get(bed));
       setReviewBtn(tile, bed);
+      setHandoff(tile, bed);
+      bindExpand(tile);
+      // Keep the footer controls in a stable order even for a tile that has
+      // cycled watch -> priority (its handoff/hint were appended on an earlier
+      // pass, so a re-created review button would otherwise land last).
+      for (const sel of ['.review-btn', '.handoff', '.expand-hint']) {
+        const el = card.querySelector(sel);
+        if (el) card.append(el);
+      }
       card.dataset.prioraRole = 'priority';
     } else {
       clearBadge(tile);
       clearReviewBtn(tile);
-      card.classList.remove('tile--priority');
+      card.classList.remove('tile--priority', 'tile--expanded');
       card.classList.add('tile--quiet');
       card.dataset.prioraRole = 'watch';
     }
@@ -250,6 +260,99 @@ function clearReviewBtn(tile) {
   if (btn) btn.remove();
 }
 
+// ---- L5: the handoff -------------------------------------------------------
+
+// Render one buildExplanation() result into `container` as a headline plus a
+// stack of tabular change lines. Shared by the priority tiles and the
+// side-by-side comparison card so they never drift apart.
+function renderHandoff(container, patient) {
+  const { headline, lines } = buildExplanation(patient);
+  container.textContent = '';
+
+  const h = document.createElement('div');
+  h.className = 'handoff-headline';
+  h.textContent = headline;
+  container.append(h);
+
+  const body = document.createElement('div');
+  body.className = 'handoff-body';
+  lines.forEach((ln, i) => {
+    const row = document.createElement('div');
+    row.className =
+      'handoff-line' + (i === lines.length - 1 ? ' handoff-line--context' : '');
+    row.textContent = ln;
+    body.append(row);
+  });
+  container.append(body);
+}
+
+// The collapsible handoff living inside a priority tile. Rebuilt every render
+// so the numbers track the sim while the tile stays open.
+function setHandoff(tile, bed) {
+  const p = patients.find((x) => x.bed === bed);
+  if (!p) return;
+  let box = tile.card.querySelector('.handoff');
+  if (!box) {
+    box = document.createElement('div');
+    box.className = 'handoff';
+    tile.card.append(box);
+  }
+  renderHandoff(box, p);
+
+  let hint = tile.card.querySelector('.expand-hint');
+  if (!hint) {
+    hint = document.createElement('span');
+    hint.className = 'expand-hint';
+    tile.card.append(hint);
+  }
+  hint.textContent = 'Why this order';
+}
+
+// One click handler per tile, wired once. Only priority tiles react.
+function bindExpand(tile) {
+  if (tile.card.dataset.expandBound) return;
+  tile.card.dataset.expandBound = '1';
+  tile.card.addEventListener('click', () => {
+    if (!tile.card.classList.contains('tile--priority')) return;
+    tile.card.classList.toggle('tile--expanded');
+  });
+}
+
+// The teaching card: the legacy one-liner beside PriorA's full handoff for
+// whoever is ranked #1 right now.
+function renderCompare(ranking) {
+  const top = ranking && ranking[0];
+  if (!prioraActive || !top) {
+    compareEl.hidden = true;
+    compareEl.textContent = '';
+    return;
+  }
+  compareEl.hidden = false;
+  compareEl.textContent = '';
+
+  const legacyCol = document.createElement('div');
+  legacyCol.className = 'compare-col compare-col--legacy';
+  const legacyTag = document.createElement('div');
+  legacyTag.className = 'compare-tag';
+  legacyTag.textContent = 'What most systems show';
+  const legacyVal = document.createElement('div');
+  legacyVal.className = 'compare-legacy';
+  legacyVal.textContent = `Bed ${top.bed} — Risk: ${top.engineScore.toFixed(2)}`;
+  legacyCol.append(legacyTag, legacyVal);
+
+  const prioraCol = document.createElement('div');
+  prioraCol.className = 'compare-col compare-col--priora';
+  const prioraTag = document.createElement('div');
+  prioraTag.className = 'compare-tag';
+  prioraTag.textContent = 'What PriorA shows';
+  const handoff = document.createElement('div');
+  handoff.className = 'handoff handoff--static';
+  renderHandoff(handoff, top.patient);
+  prioraCol.append(prioraTag, handoff);
+
+  compareEl.append(legacyCol, prioraCol);
+}
+
 // Put the priority tiles first in the grid so they sit top-left.
 function orderPriorityFirst(topBeds) {
   for (let i = topBeds.length - 1; i >= 0; i--) {
@@ -297,6 +400,7 @@ function activatePriora() {
   requestAnimationFrame(() => {
     applyRoles(topRows);
     orderPriorityFirst(topBeds);
+    renderCompare(ranking); // same snapshot as the tiles, so they agree on #1
   });
 
   // Hero: reveal the "-> 2" suffix, then swap the label under it.
@@ -313,7 +417,11 @@ function activatePriora() {
     }
     buildWatchlist(ranking, topBeds);
     watchlistEl.hidden = false;
-    requestAnimationFrame(() => watchlistEl.classList.add('is-visible'));
+    renderCompare(ranking);
+    requestAnimationFrame(() => {
+      watchlistEl.classList.add('is-visible');
+      compareEl.classList.add('is-visible');
+    });
   }, 200);
 
   // Once folded, drop them from layout so the grid closes up cleanly.
@@ -340,6 +448,7 @@ function renderPrioraState() {
   }
   orderPriorityFirst(topBeds);
   buildWatchlist(ranking, topBeds);
+  renderCompare(ranking);
   heroToEl.textContent = topBeds.length;
 }
 
@@ -376,6 +485,9 @@ function resetSim() {
   watchlistEl.hidden = true;
   watchlistEl.classList.remove('is-visible');
   watchlistEl.textContent = '';
+  compareEl.hidden = true;
+  compareEl.classList.remove('is-visible');
+  compareEl.textContent = '';
 
   renderWall(); // rebuilds tiles fresh — no priora classes, badges, or hidden
   clockEl.textContent = 'tick 0';

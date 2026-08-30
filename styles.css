@@ -414,6 +414,147 @@ main {
   cursor: default;
 }
 
+/* ---- L5: the handoff ------------------------------------------------
+   A clinical note, not a warning label. No border, no fill — it earns
+   its separation from the vitals with whitespace alone. Numbers are
+   monospaced so every "X -> Y" stacks like a line item on a statement. */
+
+.expand-hint {
+  display: none;
+}
+
+.tile--priority .expand-hint {
+  display: inline-block;
+  margin-top: 12px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--blue-hover);
+}
+
+.tile--priority .expand-hint::after {
+  content: ' \203A'; /* > */
+  display: inline-block;
+  transition: transform 0.2s ease;
+}
+
+.tile--priority.tile--expanded .expand-hint::after {
+  transform: rotate(90deg);
+}
+
+.handoff {
+  display: none;
+  margin-top: 20px;
+}
+
+.tile--priority.tile--expanded .handoff {
+  display: block;
+}
+
+/* An opened priority tile takes a second column so the note has room to
+   breathe and the change lines never need a scrollbar. */
+.wall--priora .tile--priority.tile--expanded {
+  grid-column: span 2;
+}
+
+/* In the comparison card the handoff is always open and needs no toggle. */
+.handoff--static {
+  display: block;
+  margin-top: 0;
+}
+
+.handoff-headline {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text);
+  margin-bottom: 16px;
+}
+
+.handoff-body {
+  font-family: ui-monospace, 'SF Mono', 'SFMono-Regular', 'Menlo', 'Consolas', monospace;
+  font-size: 11.5px;
+  line-height: 1;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.handoff-line {
+  padding: 9px 0;
+}
+
+.handoff-line--context {
+  margin-top: 12px;
+  padding-top: 16px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  white-space: normal;
+  color: var(--text-muted);
+}
+
+/* ---- The teaching card: legacy one-liner vs. the full handoff ------- */
+
+.compare {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.4fr);
+  gap: 40px;
+  margin-top: 36px;
+  padding-top: 28px;
+  border-top: 1px solid var(--border);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.compare.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.compare-tag {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+.compare-legacy {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 18px;
+  letter-spacing: -0.01em;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.compare-col--priora {
+  padding-left: 40px;
+  border-left: 1px solid var(--border);
+}
+
+@media (max-width: 860px) {
+  .compare {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+
+  .compare-col--priora {
+    padding-left: 0;
+    border-left: none;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+  }
+}
+
 /* Everything else compresses into a strip of grey bed-number chips. */
 .watchlist {
   display: flex;

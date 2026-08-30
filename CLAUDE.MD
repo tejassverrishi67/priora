@@ -84,9 +84,27 @@ L6 Safety — hard threshold override + auto re-escalation.
 
 \## Invariants — never break these
 
-\- Bed 12 must rank #1 once her scripted crash is underway.
+\- Bed 12 must rank #1 at any activation tick from 20 (crash onset) through
 
-\- Beds 3, 9, 18, 22, 27, 35 (chronically abnormal) must NEVER rank top 2.
+&#x20;  roughly tick 55 (mid-plateau) — this is L3's job, verified by the
+
+&#x20;  headless ranking test.
+
+\- Once a patient has been flat-critical and unreviewed for an extended
+
+&#x20;  period (Bed 12 post-tick ~55), holding them at #1 against an actively
+
+&#x20;  deteriorating patient becomes L6's responsibility (hard safety floor +
+
+&#x20;  staleness escalation), not L3's. This is correct separation of concerns,
+
+&#x20;  not a known bug — do not attempt to fix this by changing L1/L3 weights
+
+&#x20;  or the baseline window again.
+
+\- Beds 3, 9, 18, 22, 27, 35 (chronically abnormal) must NEVER rank top 2,
+
+&#x20;  at any tick, regardless of engine.
 
 \- L1/velocity must work even if the engine score is garbage.
 
